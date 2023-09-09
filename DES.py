@@ -103,9 +103,7 @@ class DES:
     bin_text = "" # the text in binary (all text)
     key = None # the key in binary
     grped = [] # the total text converted into groups of 64 bit
-
-    CUR_TEXT = ""
-    CUR_MATRIX = ""
+    
     def __init__(self):
         pass
     # Apply DES encryption to the given text using the key
@@ -113,65 +111,35 @@ class DES:
       self.text = text
       if len(key) != 8:raise ValueError("Expected 8 Character Key")
       self.key = self.string_to_binary(key)
-      # print(f" - Text : {text}")
-      # print(f" - Key : {key} (converted to {len(self.key)} bit)")
       self.bin_text = self.string_to_binary(text)
       print(f"TEXT : {self.print_hex_data(self.bin_text,False)}")
-      # print(f"    - Binary equivalent of length: {len(self.bin_text)}")
-      # print(f"    - HEX : ",end="")
-      # self.print_hex_data(self.bin_text)
+      print(f"KEY : {self.print_hex_data(self.key,False)}")
       self.grped = self.split_to(self.bin_text,64)
-      # print(f"    - Splited the text into '{len(self.grped)}' group of 64 bits")
       cipher_bin = ""
       for i in self.grped:
         after_ip = self.initial_permutation(i)
-        print("After IP : ",end="")
-        self.print_hex_data(after_ip)
+        #print("After IP : ",end="\r")
+        #self.print_hex_data(after_ip)
         cur = after_ip
         keys = self.get_round_keys(self.key)
         for i in range(16):
-          # print("  - Text : ",end="")
-          # self.print_hex_data(cur)
-          # print("  - Key : ",end="")
-          # self.print_hex_data(keys[i])
           cur = self.feistel_round(cur,keys[i])
-          print(f"Round {i+1} {self.print_hex_data(cur[0:32],False)} {self.print_hex_data(cur[32:64],False)} {self.print_hex_data(keys[i],False)}")
-          # print(f"  - After Fiestel round : ",end="")
-          # self.print_hex_data(cur)
+          #print(f"Round {i+1} {self.print_hex_data(cur[0:32],False)} {self.print_hex_data(cur[32:64],False)} {self.print_hex_data(keys[i],False)}",flush=True,end="\r")
         l = cur[:32]
         r = cur[32:64]
         cur =r+l
         cur = self.final_permutation(cur)
         cipher_bin += cur
       print(f"CIPHER TEXT : {self.print_hex_data(cipher_bin,False)}")
-        # print(f"KEY : ",end="")
-        # self.print_hex_data(self.key)
-        # print("OUT : ",end="")
-        # self.print_hex_data(cur)
-        # print(f"KEY (BIN) : {self.key}")
-        # print(f"OUT (BIN) : {cur}")
-        
-        # self.print_matrix_data(cur)
-        # after_fp = self.final_permutation(after_ip)
+      return cipher_bin,self.print_hex_data(cipher_bin,False)
     # Key Scheduling
     def get_round_keys(self,key):
       if len(key)!= 64:raise ValueError("Expected 64 bit key")
-      # self.print_matrix_data(key)
-      # n_key = ""
-      # for i in range(8):
-      #   n_key += key[i*8:i*8+7]
-      #   print(key[i*8:i*8+7])
-      # key = n_key
-      # print("Key geneation")
       p_key = "".join([key[self.PC_1[i] - 1] for i in range(len(self.PC_1))])
-      # print(f"  - After Permutation {len(p_key)} : ",end ="")
-      # self.print_hex_data(p_key)
       l = p_key[:28]
       r = p_key[28:]
       keys = []
       for i in range(16):
-        # l = self.int_to_bits(int(l,2) << self.SHIFT_TABLE[i],28)
-        # r = self.int_to_bits(int(r,2) << self.SHIFT_TABLE[i],28)
         l = self.shift_left(l,self.SHIFT_TABLE[i])
         r = self.shift_left(r,self.SHIFT_TABLE[i])
         k = l + r
@@ -193,30 +161,28 @@ class DES:
       after_f = self.des_f_function(right,key)
       res_right = self.bitwise_xor(after_f,left)
       return res_left + res_right
+    # Inverse Feistel round 
+    def inverse_feistel(self,text,key):
+      if len(key) != 48:raise ValueError("Expected 48 bit key")
+      if len(text) != 64:raise ValueError("Expected 64 bits")
+      left = text[:32]
+      right = text[32:]
+      res_right = left
+      
     def des_f_function(self,right,key):
       if len(key)!= 48:raise ValueError("Expected 48 bit key")
       if len(right)!= 32:raise ValueError("Expected 32 bits")
-      # print("DES f Function ..")
-      # print(f"  - RIght {len(right)}: ",end="")
-      # self.print_hex_data(right)
       exp_right = self.e_box(right)
-      # print(f"  - Expanded RIght {len(exp_right)}: ",end="")
-      # self.print_hex_data(exp_right)
       xor_right = self.bitwise_xor(exp_right,key)
-      # print(f"  - After XOR {len(xor_right)}: ",end="")
-      # self.print_hex_data(exp_right)
       b_size = int(len(xor_right)/8)
       splitted = [xor_right[b_size*i:b_size*i+b_size] for i in range(8)]
-      # print("Splitted to 8: ",splitted)
       res_32 = []
       for i in range(8):
         # apply s_box for each
         res_32.append(self.s_box(splitted[i],self.S_BOX[i]))
-      # print("After SBOX: ",res_32)
       after_perm = self.p_box("".join(res_32))
-      # print(f"  - After P_BOX {len(after_perm)}: ",end="")
-      # self.print_hex_data(after_perm)
       return after_perm
+    
     # Apply P_box to given text
     def p_box(self,text):
       if len(text) != 32:raise ValueError("Expected 32 bits")
@@ -239,7 +205,6 @@ class DES:
     def split_to(self,text,n):
       if type(text) != str and type(text) != bytes:raise ValueError("Expected bytes or string as text")
       if type(n) != int:raise ValueError("Expected int as n")
-      # if len(text) % n != 0:raise ValueError(f"The values cant be grouped in to the length {n}")
       grp = []
       for i in range(int(len(text)/n) if len(text)%n == 0 else int(len(text)/n + 1)):
         if len(text[i*n:]) < n:
@@ -255,7 +220,6 @@ class DES:
         tmp = bin(i).lstrip("0b")
         if len(tmp) < 8:tmp = '0'*(8-len(tmp)) + tmp
         str_bytes += tmp
-        #print(tmp)
       return str_bytes
     # convert the string of binary values into a string of corresponding values(utf-8)
     def binary_to_string(self,string):
@@ -317,8 +281,24 @@ class DES:
         k = s
         s = ""
       return k
+    
+    # Decrypt
+    def decrypt(self,text,key):
+      self.key = self.string_to_binary(key)
+      print(f"CIPHER TEXT : {text}")
+      print(f"KEY : {self.print_hex_data(self.key,False)}")
+      self.grped = self.split_to(text,64)
+      for i in self.grped:
+        after_ip = self.initial_permutation(i)
+        print(f"After IP : {self.print_hex_data(after_ip,False)}", end="")
+        l = after_ip[:32]
+        r = after_ip[32:]
+        keys = self.get_round_keys(self.key)
+    def inverse_feistel(self,)
+      
 
 key = "abcdefgh"
 des = DES()
-des.encrypt("Hi Im Aswanth V C, Im sending this very secret message $1+",key)
-
+#ci,_ = des.encrypt("Hi Im Aswanth V C, Im sending this very secret message $1+",key)
+ci,_ = des.encrypt("content",key)
+des.decrypt(ci,key)
